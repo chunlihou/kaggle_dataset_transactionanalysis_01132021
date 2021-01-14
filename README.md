@@ -1,1 +1,4 @@
-# kaggle_dataset_transactionanalysis_01132021
+# ABOUT
+
+- Kaggle - Dataset - Transaction Analysis - 01132021
+- Published: https://rpubs.com/cxh190001/713306

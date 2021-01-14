@@ -1,0 +1,305 @@
+---
+title: "Transaction Analysis"
+author: "Chun-Li Hou"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output: 
+  html_document:
+    code_folding: hide
+    toc: true
+    toc_depth: 3
+    number_sections: true
+    theme: united
+    highlight: tango
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.align = "center")
+```
+
+# Objective
+
+The main objective of this analysis revolves around identifying key insights across each sector of the funneling process from viewing a product, adding, removing, and making a purchase to optimize conversion rates by providing critical recommendations and performance improvements.
+
+This is inclusive of uncovering business intelligence, associated recommendations on performance improvements, and machine learning techniques to support the same using R.
+
+# Preparation
+
+## Environment
+
+Let us set up the working environment and be ready for the analysis.
+
+```{r}
+# imorting package
+library(hms)
+library(gridExtra)
+library(lubridate)
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+
+# setting plot
+theme.nl = theme_bw() +
+  theme(plot.title = element_text(face = "bold", size = (15)),
+        plot.subtitle = element_text(size = (10)),
+        axis.title = element_text(size = (10))) +
+  theme(axis.text.x = element_text(angle = 0), legend.position = "none")
+theme.yl = theme_bw() +
+  theme(plot.title = element_text(face = "bold", size = (15)),
+        plot.subtitle = element_text(size = (10)),
+        axis.title = element_text(size = (10))) +
+  theme(axis.text.x = element_text(angle = 0))
+```
+
+## Dataset
+
+The data comes from kaggle.com in an e-commerce department data source. It does not contain any missing value. However, there are some errors. They will be corrected by dropping out. The further details of processing data can be checked in the code sections.
+
+```{r}
+# importing data
+df.2019.oct = read.csv("DATA/2019-Oct.csv")
+df.2019.nov = read.csv("DATA/2019-Nov.csv")
+df.2019.dec = read.csv("DATA/2019-Dec.csv")
+df.2020.jan = read.csv("DATA/2020-Jan.csv")
+df.2020.feb = read.csv("DATA/2020-Feb.csv")
+
+# removing data
+sa.2019.oct = df.2019.oct[, c(-3,-4,-5,-9)]
+sa.2019.nov = df.2019.nov[, c(-3,-4,-5,-9)]
+sa.2019.dec = df.2019.dec[, c(-3,-4,-5,-9)]
+sa.2020.jan = df.2020.jan[, c(-3,-4,-5,-9)]
+sa.2020.feb = df.2020.feb[, c(-3,-4,-5,-9)]
+
+# encoding data
+par.1 = strptime(sa.2019.oct$event_time, "%Y-%m-%d %H:%M:%S")
+event.time = format(par.1, "%H:%M:%S")
+event.date = format(par.1, "%Y-%m-%d")
+sa.2019.oct$event_time = as_hms(event.time)
+sa.2019.oct$event_date = as.Date(event.date)
+par.2 = strptime(sa.2019.nov$event_time, "%Y-%m-%d %H:%M:%S")
+event.time = format(par.2, "%H:%M:%S")
+event.date = format(par.2, "%Y-%m-%d")
+sa.2019.nov$event_time = as_hms(event.time)
+sa.2019.nov$event_date = as.Date(event.date)
+par.3 = strptime(sa.2019.dec$event_time, "%Y-%m-%d %H:%M:%S")
+event.time = format(par.3, "%H:%M:%S")
+event.date = format(par.3, "%Y-%m-%d")
+sa.2019.dec$event_time = as_hms(event.time)
+sa.2019.dec$event_date = as.Date(event.date)
+par.4 = strptime(sa.2020.jan$event_time, "%Y-%m-%d %H:%M:%S")
+event.time = format(par.4, "%H:%M:%S")
+event.date = format(par.4, "%Y-%m-%d")
+sa.2020.jan$event_time = as_hms(event.time)
+sa.2020.jan$event_date = as.Date(event.date)
+par.5 = strptime(sa.2020.feb$event_time, "%Y-%m-%d %H:%M:%S")
+event.time = format(par.5, "%H:%M:%S")
+event.date = format(par.5, "%Y-%m-%d")
+sa.2020.feb$event_time = as_hms(event.time)
+sa.2020.feb$event_date = as.Date(event.date)
+```
+
+# Business Insight
+
+## Event Type in Each Month
+
+The following months have their holiday season in them, so there would come with an increase in sales. In detail, Oct has Halloween; Nov has Thanksgiving; Dec has Christmas; Jan has New Year; Feb has Valentine's Day. However, there are still some other factors affecting sales. For example, the China government banned the production of cosmetics that contain microbeads due to the presence of harmful ingredients.
+
+```{r, fig.width = 12, fig.height = 6}
+# plot data
+p.1 = ggplot(data = sa.2019.oct) + geom_bar(aes(x = event_type, fill = event_type)) + 
+  labs(title = "Oct 2019", x = NULL, y = NULL) + theme.nl
+p.2 = ggplot(data = sa.2019.nov) + geom_bar(aes(x = event_type, fill = event_type)) + 
+  labs(title = "Nov 2019", x = NULL, y = NULL) + theme.nl
+p.3 = ggplot(data = sa.2019.dec) + geom_bar(aes(x = event_type, fill = event_type)) + 
+  labs(title = "Dec 2019", x = NULL, y = NULL) + theme.nl
+p.4 = ggplot(data = sa.2020.jan) + geom_bar(aes(x = event_type, fill = event_type)) + 
+  labs(title = "Jan 2020", x = NULL, y = NULL) + theme.nl
+p.5 = ggplot(data = sa.2020.feb) + geom_bar(aes(x = event_type, fill = event_type)) + 
+  labs(title = "Feb 2020", x = NULL, y = NULL) + theme.nl
+grid.arrange(p.1, p.2, p.3, p.4, p.5, nrow = 2)
+```
+
+## Event Type in Timeline
+
+This principle focus is on the time changing for each event type. So, we can recognize whether these event types have any time pattern, such as trend pattern, seasonal pattern, or cyclical pattern. 
+
+- Trend pattern: long-tern increase or decrease (moving upward or downward)
+- Seasonal pattern: fix magnitude with known interval (happening at the time a regular/constant duration/frequency, as the number of people traveling by plane)
+- Cyclical pattern: unfix magnitude with unknown interval (having possibly a model but not know exactly and happen irregular in no constant duration/frequency, as the recession)
+
+```{r}
+# sort data
+tab.1 = sa.2019.oct$event_type %>% table() %>% as.data.frame()
+names(tab.1) = c("Event_type", "Freq")
+tab.1$month = "2019-10"
+tab.2 = sa.2019.nov$event_type %>% table() %>% as.data.frame()
+names(tab.2) = c("Event_type", "Freq")
+tab.2$month = "2019-11"
+tab.3 = sa.2019.dec$event_type %>% table() %>% as.data.frame()
+names(tab.3) = c("Event_type", "Freq")
+tab.3$month = "2019-12"
+tab.4 = sa.2020.jan$event_type %>% table() %>% as.data.frame()
+names(tab.4) = c("Event_type", "Freq")
+tab.4$month = "2020-01"
+tab.5 = sa.2020.feb$event_type %>% table() %>% as.data.frame()
+names(tab.5) = c("Event_type", "Freq")
+tab.5$month = "2020-02"
+
+# temp data
+trend = rbind(tab.1, tab.2, tab.3, tab.4, tab.5)
+
+# plot data
+ggplot(data = trend, aes(x = month, y = Freq/100000)) + 
+  geom_line(aes(color = Event_type, group = Event_type), lwd = 1.5) +
+  geom_point(aes(color = Event_type, size = 0.5), show.legend = FALSE) +
+  labs(title = "Event history trend over months", x = "Time period", y = "Total count (in 100,000)") +
+  theme.yl
+```
+
+## Customer Behavior in Timeline
+
+As assuming the selling price is the same as the price listed, which means the sales are based on the time pattern and no price effect, such as discount promotion, we can tell the time pattern exists or not.
+
+```{r}
+# sort data
+s.1 = sa.2019.oct %>% filter(event_type == "purchase") %>% select(price, event_date)
+s.1 = aggregate(price ~ event_date, s.1, sum)
+s.2 = sa.2019.nov %>% filter(event_type == "purchase") %>% select(price, event_date)
+s.2 = aggregate(price ~ event_date, s.2, sum)
+s.3 = sa.2019.dec %>% filter(event_type == "purchase") %>% select(price, event_date)
+s.3 = aggregate(price ~ event_date, s.3, sum)
+s.4 = sa.2020.jan %>% filter(event_type == "purchase") %>% select(price, event_date)
+s.4 = aggregate(price ~ event_date, s.4, sum)
+s.5 = sa.2020.feb %>% filter(event_type == "purchase") %>% select(price, event_date)
+s.5 = aggregate(price ~ event_date, s.5, sum)
+
+# temp data
+sales = rbind(s.1, s.2, s.3, s.4, s.5)
+sales$period = month(sales$event_date)
+
+# bound data
+# sales[(sales$price == max(sales$price)), ] 
+# sales[(sales$price == min(sales$price)), ] 
+
+# plot data
+ggplot(data = sales, aes(x = event_date, y = price)) +
+  geom_line(lwd = 1) + 
+  geom_smooth(method = "loess", se = T, alpha = 0.5) + 
+  geom_hline(aes(yintercept = min(price)), linetype = "dashed", color = "red") + 
+  geom_hline(aes(yintercept = max(price)), linetype = "dashed", color = "red") +
+  labs(title = "Total purchase across time period", subtitle = "Max sales: 2019-11-22 \nMin sales: 2019-12-31",
+       x = "Time period", y = "Total cart") +
+  theme.nl
+```
+
+## Conversion & Cart Abandonment Rate
+
+The cart abandonment rate 1 is the overall percentage of customers who added some items to the cart but abandoned them prior to purchase. It means potential customers who were able to reach the end of the funneling model but gave up due to some reasons. This index speaks of how promising the checkout process could be. Conversion rate is the overall percentage of visitors who make the website and successfully make a purchase. As for the cosmetic industry, the average cart abandonment rate is 67% and the average conversion rate is 5.2%.
+
+The cart abandonment rate has an indirect effect on the conversion rate. The high cart abandonment rate could indicate a less smooth experience within the check out process, high shipping fee, weak remarketing promotion, or no guest-check-out function.
+
+The recommendation for the cart abandonment rate is introducing email marketing re-targeting of customers who abandoned the cart alongside offering promotional coupons of discount or other resources. To offer free shipping for total purchase crossing a threshold and to offer gust-check-out functions with easy access to payment gateways.
+
+```{r, fig.width = 12, fig.height = 6}
+# sort data
+cart = trend %>% filter(Event_type == "cart")
+purchase = trend %>% filter(Event_type == "purchase")
+removed = trend %>% filter(Event_type == "remove_from_cart")
+view = trend %>% filter(Event_type == "view")
+
+# cart abandonment rate
+ab.rate = (1- (purchase$Freq / cart$Freq)) * 100
+
+# conversion rate
+conv.rate = (purchase$Freq / (view$Freq + cart$Freq + removed$Freq + purchase$Freq)) * 100
+
+# month
+month = c("2019-10", "2019-11", "2019-12", "2020-01", "2020-02")
+
+# temp data
+rate = data.frame(ab.rate, conv.rate, month)
+
+# plot data
+p1 = ggplot(data = rate, aes(x = month)) +
+  geom_line(aes(y = ab.rate, group = 1), lwd = 1.15) +
+  geom_point(aes(y = ab.rate, color = month, size = 1), show.legend = F) +
+  labs(title = "Cart abandonment rate per month", x = "Time period", y = "Abandonment rate (in %)") +
+  theme.nl
+p2 = ggplot(data = rate, aes(x = month)) +
+  geom_line(aes(y = conv.rate, group = 1), lwd = 1.15) +
+  geom_point(aes(y = conv.rate, color = month, size = 1), show.legend = F) +
+  labs(title = "Conversion rate per month", x = "Time period", y = "Conversion rate (in %)") +
+  theme.nl
+grid.arrange(p1, p2, nrow = 1)
+```
+
+## Loyal Customer
+
+The top customers have the highest revenue. Retention analysis is a way to ensure customers being staying. Or, it is a way to develop the model into B2B type for a greater revenue with stabler relationship and higher volume.
+
+```{r}
+# sort data
+t.1 = sa.2019.oct %>% select(user_id, event_type, price)
+t.2 = sa.2019.nov %>% select(user_id, event_type, price)
+t.3 = sa.2019.dec %>% select(user_id, event_type, price)
+t.4 = sa.2020.jan %>% select(user_id, event_type, price)
+t.5 = sa.2020.feb %>% select(user_id, event_type, price)
+t.6 = rbind(t.1, t.2, t.3, t.4, t.5)
+
+# temp data
+loyalty = t.6 %>% filter(event_type == "purchase") 
+loyal = aggregate(price ~ user_id, loyalty, sum)
+loyal = loyal[(loyal$price > 0), ] # remove the observations where prices are below 0
+loyal = loyal %>% arrange(desc(price)) 
+top.10 = head(loyal, 10)
+top.10$key = factor(c("A","B","C","D", "E", "F", "G", "H", "I", "J"))
+worst.10 = tail(loyal, 10)
+worst.10$key = factor(rownames(worst.10))
+
+# plot data
+ggplot(data = top.10, aes(x = key, y = price)) + 
+  geom_bar(stat = "identity", aes(fill = key)) +
+  labs(title = "Revenue brought in by most loyal customers", x = "User (in key)", y = "Revenue (in dollars)") +
+  theme.nl
+```
+
+## Price & Time Impact
+
+The price is the main concern for the action of purchase. With respect to price, compelling discounts can be offered at crucial times to increase the website traffic during working hours of the day. Time-based promotional events can take advantage of the time. 
+
+```{r}
+# sort data
+t.1 = sa.2019.oct %>% select(price, event_time, event_type)
+t.1$hour = hour(t.1$event_time)
+t.2 = sa.2019.nov %>% select(price, event_time, event_type)
+t.2$hour = hour(t.2$event_time)
+t.3 = sa.2019.dec %>% select(price, event_time, event_type)
+t.3$hour = hour(t.3$event_time)
+t.4 = sa.2020.jan %>% select(price, event_time, event_type)
+t.4$hour = hour(t.4$event_time)
+t.5 = sa.2020.feb %>% select(price, event_time, event_type)
+t.5$hour = hour(t.5$event_time)
+
+# temp data
+time = rbind(t.1, t.2, t.3, t.4, t.5)
+time.hour = aggregate(price ~ event_type + hour, time, sum)
+
+# plot data
+ggplot(data = time.hour, aes(x = hour, y = scale(price))) + 
+  geom_line(aes(color = event_type), lwd = 1) + 
+  labs(title = "Relationship between price and day hour in event types", x = "Time (in hours)", y = "Scaled price") + 
+  # geom_vline(aes(xintercept = 19), linetype = "dashed", color = "black") +  
+  # geom_vline(aes(xintercept = 11), linetype = "dashed", color = "black") +  
+  # geom_text(aes(x = 10, y = -0.5), label = "Max - Purchase") + 
+  # geom_text(aes(x = 19, y = 2.7), label = "Max - View, Cart, Remove") + 
+  scale_x_continuous(breaks = c(0:24)) +
+  theme.yl
+```
+
+# Conclusion
+
+In summary, we can know the event types across the months. Furthermore, we can tell them on a timeline scale. Therefore, we can break down and calculate the meaningful indexes for indication, such as the cart abandonment rate and conversion rate. Eventually, we identify the loyal customer and know about the time schedule for important sales insight.
+
+# Reference
+
+1. [eCommerce Events History in Cosmetics Shop / 2020 / Michael Kechinov](https://tinyurl.com/y28lhg7t)
+2. [Data Analysis & Recommendation / 2020 / Annette Catherine Paul](https://tinyurl.com/yyk6h2ac)
